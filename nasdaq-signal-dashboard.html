@@ -204,7 +204,7 @@
     <!-- 基金代码管理 -->
     <section class="fund-manager-section">
       <div class="fund-input-row">
-        <input type="text" id="fundInput" placeholder="输入基金代码后回车，如 160213" maxlength="10">
+        <input type="text" id="fundInput" placeholder="输入6位基金代码，自动识别美股/A股" maxlength="10">
         <button class="btn" onclick="addFundCode()" style="flex:0 0 auto;padding:7px 14px;">+ 添加</button>
         <span style="font-size:10px;color:var(--text-muted);white-space:nowrap;" id="fundMarketHint">→ 当前标签页</span>
       </div>
@@ -384,18 +384,62 @@
     window.addFundCode = function() {
       const input = document.getElementById('fundInput');
       const code = input.value.trim();
-      const market = activeTab.current;
-      if (!code) return;
-      const list = getFundList(market);
-      if (list.includes(code)) {
+      if (!code || code.length < 6) {
+        document.getElementById('errorMsg').textContent = '⚠️ 请输入6位基金代码';
+        return;
+      }
+
+      // 先检查两个列表是否已存在
+      const usList = getFundList('us');
+      const cnList = getFundList('cn');
+      if (usList.includes(code) || cnList.includes(code)) {
         document.getElementById('errorMsg').textContent = '⚠️ 该基金代码已存在';
         return;
       }
-      list.push(code);
-      saveFundList(market, list);
-      renderFundBar(market);
-      input.value = '';
-      document.getElementById('errorMsg').textContent = '';
+
+      // 显示检测中
+      document.getElementById('errorMsg').textContent = '🔍 正在识别基金类型...';
+      document.getElementById('errorMsg').style.color = 'var(--text-secondary)';
+
+      // 调用 API 自动检测
+      const base = window.location.origin;
+      fetch(base + '/api/fund-detect?code=' + code, { signal: AbortSignal.timeout(8000) })
+        .then(r => r.json())
+        .then(json => {
+          if (json.ok && json.data) {
+            const market = json.data.market === 'cn' ? 'cn' : 'us';
+            const marketLabel = market === 'us' ? '美股' : 'A股';
+            const list = getFundList(market);
+            list.push(code);
+            saveFundList(market, list);
+            renderFundBar(market);
+            const nameText = json.data.name ? '（' + json.data.name + '）' : '';
+            document.getElementById('errorMsg').textContent = '✅ 已添加至' + marketLabel + ' ' + nameText;
+            document.getElementById('errorMsg').style.color = 'var(--green)';
+            input.value = '';
+          } else {
+            // 检测失败，默认归入当前标签页
+            const market = activeTab.current;
+            const list = getFundList(market);
+            list.push(code);
+            saveFundList(market, list);
+            renderFundBar(market);
+            document.getElementById('errorMsg').textContent = '⚠️ 未能自动识别，已加入当前标签页';
+            document.getElementById('errorMsg').style.color = 'var(--amber)';
+            input.value = '';
+          }
+        })
+        .catch(() => {
+          // 网络错误，归入当前标签页
+          const market = activeTab.current;
+          const list = getFundList(market);
+          list.push(code);
+          saveFundList(market, list);
+          renderFundBar(market);
+          document.getElementById('errorMsg').textContent = '⚠️ 检测服务超时，已加入当前标签页';
+          document.getElementById('errorMsg').style.color = 'var(--amber)';
+          input.value = '';
+        });
     };
 
     window.removeFundCode = function(market, idx) {

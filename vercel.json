@@ -8,11 +8,16 @@
     "api/fund-nav.mjs": {
       "memory": 128,
       "maxDuration": 30
+    },
+    "api/fund-detect.mjs": {
+      "memory": 128,
+      "maxDuration": 15
     }
   },
   "routes": [
     { "src": "/api/signals", "dest": "/api/signals.mjs" },
     { "src": "/api/fund-nav", "dest": "/api/fund-nav.mjs" },
+    { "src": "/api/fund-detect", "dest": "/api/fund-detect.mjs" },
     { "src": "/(.*)", "dest": "/nasdaq-signal-dashboard.html" }
   ]
 }

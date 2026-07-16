@@ -1,0 +1,13 @@
+{
+  "name": "nasdaq-signal-dashboard",
+  "version": "1.0.0",
+  "description": "纳指信号看板 - 基于周线指标的美股基金择时信号系统",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

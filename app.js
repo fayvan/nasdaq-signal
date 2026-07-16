@@ -2,11 +2,10 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const server = http.createServer((req, res) => {
-    // 清理 URL，去掉查询参数
+module.exports = (req, res) => {
+    // API 路由由 Vercel 处理，这里只处理静态文件
     let url = req.url.split('?')[0];
     
-    // 默认首页
     if (url === '/') {
         url = '/index.html';
     }
@@ -21,8 +20,6 @@ const server = http.createServer((req, res) => {
         '.json': 'application/json',
         '.png': 'image/png',
         '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
         '.svg': 'image/svg+xml',
         '.ico': 'image/x-icon'
     };
@@ -30,23 +27,19 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(filePath);
     const contentType = mimeTypes[ext] || 'text/plain';
     
-    fs.readFile(filePath, (err, data) => {
-        if (err) {
-            // 如果是找不到文件，返回 index.html（SPA 模式）
-            fs.readFile(path.join(__dirname, 'index.html'), (err2, data2) => {
-                if (err2) {
-                    res.writeHead(404, { 'Content-Type': 'text/plain' });
-                    res.end('404 Not Found');
-                } else {
-                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                    res.end(data2);
-                }
-            });
-        } else {
-            res.writeHead(200, { 'Content-Type': contentType });
+    try {
+        const data = fs.readFileSync(filePath);
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(data);
+    } catch (err) {
+        // 文件不存在，返回 index.html
+        try {
+            const data = fs.readFileSync(path.join(__dirname, 'index.html'));
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(data);
+        } catch (err2) {
+            res.writeHead(404);
+            res.end('Not Found');
         }
-    });
-});
-
-module.exports = server;
+    }
+};

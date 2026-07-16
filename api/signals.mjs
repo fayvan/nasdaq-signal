@@ -7,13 +7,15 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
-  const market = (req.query?.market || 'us').toLowerCase();
-
   try {
-    const symbol = market === 'cn' ? '000300.SS' : '%5ENDX';
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=3y&interval=1wk&includePrePost=false`;
+    // Vercel 兼容：从 URL 解析 market 参数
+    const url = new URL(req.url, 'http://localhost');
+    const market = (url.searchParams.get('market') || 'us').toLowerCase();
 
-    const resp = await fetch(url, {
+    const symbol = market === 'cn' ? '000300.SS' : '%5ENDX';
+    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2y&interval=1wk&includePrePost=false`;
+
+    const resp = await fetch(chartUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
       signal: AbortSignal.timeout(15000),
     });
@@ -40,10 +42,11 @@ export default async function handler(req, res) {
     const signals = computeSignals(candles, market);
     signals.market = market;
     signals.vix = vixData;
-    signals._version = 'v3.0-new-engine'; // 用于验证部署版本
+    signals._version = 'v3.0-new-engine';
     res.status(200).json({ ok: true, data: signals });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message, market });
+    console.error('ERROR:', err.message, err.stack);
+    res.status(200).json({ ok: false, error: err.message, stack: err.stack?.split('\n').slice(0, 5).join('|'), market });
   }
 }
 

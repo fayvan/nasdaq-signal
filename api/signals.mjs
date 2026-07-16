@@ -7,10 +7,10 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
+  let market = 'us';
   try {
-    // Vercel 兼容：从 URL 解析 market 参数
     const url = new URL(req.url, 'http://localhost');
-    const market = (url.searchParams.get('market') || 'us').toLowerCase();
+    market = (url.searchParams.get('market') || 'us').toLowerCase();
 
     const symbol = market === 'cn' ? '000300.SS' : '%5ENDX';
     const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2y&interval=1wk&includePrePost=false`;
@@ -33,11 +33,8 @@ export default async function handler(req, res) {
     })).filter(c => c.close !== null && c.close > 0)
       .sort((a, b) => a.date - b.date);
 
-    // 如果是美股，额外获取 VIX
-    let vixData = null;
-    if (market !== 'cn') {
-      vixData = await fetchVIX().catch(() => null);
-    }
+    // VIX 数据（美股专用）
+    const vixData = market !== 'cn' ? await fetchVIX().catch(() => null) : null;
 
     const signals = computeSignals(candles, market);
     signals.market = market;
@@ -45,8 +42,12 @@ export default async function handler(req, res) {
     signals._version = 'v3.0-new-engine';
     res.status(200).json({ ok: true, data: signals });
   } catch (err) {
-    console.error('ERROR:', err.message, err.stack);
-    res.status(200).json({ ok: false, error: err.message, stack: err.stack?.split('\n').slice(0, 5).join('|'), market });
+    // catch 里绝对不能再抛异常
+    try {
+      res.status(200).json({ ok: false, error: err.message, market });
+    } catch {
+      res.status(200).json({ ok: false, error: 'unknown: ' + String(err.message) });
+    }
   }
 }
 

@@ -172,6 +172,11 @@ function calcSTDDEV(prices, period) {
 //  综合分析引擎
 // ══════════════════════════════════════════════
 
+// 安全格式化：任何值都能转成 N 位小数，undefined/null 返回 '0'
+function sf(v, n = 1) {
+  return (v == null || isNaN(v) ? 0 : v).toFixed(n);
+}
+
 function computeSignals(candles, market) {
   const prices = candles.map(c => c.close);
   const highs = candles.map(c => c.high);
@@ -251,40 +256,40 @@ function computeSignals(candles, market) {
   }
 
   // ━━ 趋势 ━━
-  if (dist10 < -EXT) add('buy', `跌破10周均线 ${(dist10*100).toFixed(1)}%`, 1.5 * RM);
+  if (dist10 < -EXT) add('buy', `跌破10周均线 ${sf(dist10*100)}%`, 1.5 * RM);
   else if (dist10 < -0.01) add('buy', `略低于10周均线`, 0.5 * RM);
-  else if (dist10 > EXT + 0.03) add('sell', `远离10周均线 ${(dist10*100).toFixed(1)}%`, 1.5 * TM);
-  else add('hold', `10周均线附近 ${(dist10*100).toFixed(1)}%`, 0);
+  else if (dist10 > EXT + 0.03) add('sell', `远离10周均线 ${sf(dist10*100)}%`, 1.5 * TM);
+  else add('hold', `10周均线附近 ${sf(dist10*100)}%`, 0);
 
-  if (dist20 < -EXT * 0.8) add('buy', `跌破20周均线 ${(dist20*100).toFixed(1)}%`, 2 * RM);
+  if (dist20 < -EXT * 0.8) add('buy', `跌破20周均线 ${sf(dist20*100)}%`, 2 * RM);
   else if (dist20 < -0.005) add('buy', `略低于20周均线`, 1 * RM);
-  else if (dist20 > EXT * 0.8) add('sell', `远离20周均线 ${(dist20*100).toFixed(1)}%`, 2 * TM);
+  else if (dist20 > EXT * 0.8) add('sell', `远离20周均线 ${sf(dist20*100)}%`, 2 * TM);
   else add('hold', `20周均线附近`, 0);
 
   if (dist50 !== null) {
-    if (dist50 < -EXT * 0.6) add('buy', `跌破50周均线 ${(dist50*100).toFixed(1)}%`, 2.5 * RM);
+    if (dist50 < -EXT * 0.6) add('buy', `跌破50周均线 ${sf(dist50*100)}%`, 2.5 * RM);
     else if (dist50 < 0) add('buy', `略低于50周均线`, 1 * RM);
-    else if (dist50 > EXT * 0.8 + 0.05) add('sell', `远离50周均线 ${(dist50*100).toFixed(1)}%`, 1.5 * TM);
+    else if (dist50 > EXT * 0.8 + 0.05) add('sell', `远离50周均线 ${sf(dist50*100)}%`, 1.5 * TM);
     else add('hold', `50周均线附近`, 0);
   }
 
   // ━━ 动能 ━━
   if (rsiVal !== null) {
-    if (rsiVal < OS - 5) add('buy', `RSI ${rsiVal.toFixed(1)}，深度超卖`, 3 * RM);
-    else if (rsiVal < OS) add('buy', `RSI ${rsiVal.toFixed(1)}，超卖区`, 2 * RM);
-    else if (rsiVal < OS + 5) add('buy', `RSI ${rsiVal.toFixed(1)}，偏低`, 1);
-    else if (rsiVal > OB + 5) add('sell', `RSI ${rsiVal.toFixed(1)}，深度超买`, 3);
-    else if (rsiVal > OB) add('sell', `RSI ${rsiVal.toFixed(1)}，超买区`, 2);
-    else if (rsiVal > 65) add('sell', `RSI ${rsiVal.toFixed(1)}，偏高`, 1);
-    else add('hold', `RSI ${rsiVal.toFixed(1)}，中性区`, 0);
+    if (rsiVal < OS - 5) add('buy', `RSI ${sf(rsiVal)}，深度超卖`, 3 * RM);
+    else if (rsiVal < OS) add('buy', `RSI ${sf(rsiVal)}，超卖区`, 2 * RM);
+    else if (rsiVal < OS + 5) add('buy', `RSI ${sf(rsiVal)}，偏低`, 1);
+    else if (rsiVal > OB + 5) add('sell', `RSI ${sf(rsiVal)}，深度超买`, 3);
+    else if (rsiVal > OB) add('sell', `RSI ${sf(rsiVal)}，超买区`, 2);
+    else if (rsiVal > 65) add('sell', `RSI ${sf(rsiVal)}，偏高`, 1);
+    else add('hold', `RSI ${sf(rsiVal)}，中性区`, 0);
   }
 
   // ━━ 均值回归 ━━
-  if (dd < -ddDeep) add('buy', `从前高回撤 ${(dd*100).toFixed(1)}%，深度回调区`, 3 * RM);
-  else if (dd < -ddMid) add('buy', `从前高回撤 ${(dd*100).toFixed(1)}%`, 2 * RM);
-  else if (dd < -ddLight) add('buy', `从前高回撤 ${(dd*100).toFixed(1)}%`, 1.5 * RM);
-  else if (dd < -0.05) add('hold', `小幅回撤 ${(dd*100).toFixed(1)}%`, 0);
-  else add('sell', `接近前高(${(dd*100).toFixed(1)}%)`, 1.5 * TM);
+  if (dd < -ddDeep) add('buy', `从前高回撤 ${sf(dd*100)}%，深度回调区`, 3 * RM);
+  else if (dd < -ddMid) add('buy', `从前高回撤 ${sf(dd*100)}%`, 2 * RM);
+  else if (dd < -ddLight) add('buy', `从前高回撤 ${sf(dd*100)}%`, 1.5 * RM);
+  else if (dd < -0.05) add('hold', `小幅回撤 ${sf(dd*100)}%`, 0);
+  else add('sell', `接近前高(${sf(dd*100)}%)`, 1.5 * TM);
 
   // ━━ 量价结构 ━━
   if (bollLowerDist !== null && bollLowerDist < 0.01) add('buy', '触及布林下轨', 2.5 * RM);
@@ -299,9 +304,9 @@ function computeSignals(candles, market) {
   else if (streak <= -5) add('buy', `连跌 ${Math.abs(streak)} 周`, 1.5 * RM);
   else if (streak <= -4) add('buy', `连跌 ${Math.abs(streak)} 周`, 1 * RM);
 
-  if (volRatio > 2.5 && roc5 < -0.02) add('buy', `巨量下跌(${(volRatio).toFixed(1)}x)`, 2 * RM);
-  else if (volRatio > 2.5 && roc5 > 0.02) add('sell', `巨量上涨(${(volRatio).toFixed(1)}x)`, 2);
-  else if (volRatio < 0.5) add('hold', `严重缩量(${(volRatio).toFixed(1)}x)`, 0);
+  if (volRatio > 2.5 && roc5 < -0.02) add('buy', `巨量下跌(${sf(volRatio)}x)`, 2 * RM);
+  else if (volRatio > 2.5 && roc5 > 0.02) add('sell', `巨量上涨(${sf(volRatio)}x)`, 2);
+  else if (volRatio < 0.5) add('hold', `严重缩量(${sf(volRatio)}x)`, 0);
 
   // ══════════════════════════════════════════════
   //  市场热度分析（Sentiment / Heat）
@@ -514,7 +519,7 @@ function computeSignals(candles, market) {
       verdict,
       environment: '震荡行情',
       risk: isCN && atrPct > 4 ? '高波动' : '正常波动',
-      scoreBreakdown: `买入信号${numBuy}个，卖出信号${numSell}个，综合得分${totalScore >= 0 ? '+' : ''}${totalScore.toFixed(1)}`,
+      scoreBreakdown: `买入信号${numBuy}个，卖出信号${numSell}个，综合得分${totalScore >= 0 ? '+' : ''}${sf(totalScore)}`,
     };
   }
 

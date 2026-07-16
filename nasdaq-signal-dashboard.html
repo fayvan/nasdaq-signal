@@ -458,7 +458,30 @@
 
     function updatePanel(market, data) {
       const p = market === 'us' ? 'us' : 'cn';
-      const { name, price, overall, intensity, score, signals, indicators } = data;
+
+      // 兼容新旧 API 格式
+      const price = data.price;
+      // 新版有 indicators 和 signals.buy/sell/hold 数组带 weight
+      // 旧版直接有信号字段
+      const overall = data.overall || 'HOLD';
+      const intensity = data.intensity || '⏸️ 持有/观望';
+      const score = data.score != null ? data.score : 0;
+      const signalsData = data.signals || { buy: [], sell: [], hold: ['在20周均线上方','RSI 中性','接近前高'] };
+
+      // 构造 indicators（兼容旧版）
+      const ind = data.indicators || {};
+      const sma20 = ind.sma20 != null ? ind.sma20 : (data.smaVal || null);
+      const rsi = ind.rsi != null ? ind.rsi : null;
+      const drawdown = ind.drawdown != null ? ind.drawdown : (data.drawdown || null);
+      const dist20 = ind.dist20 != null ? ind.dist20 : (data.smaDist || 0);
+      const dist10 = ind.dist10 != null ? ind.dist10 : null;
+      const dist50 = ind.dist50 != null ? ind.dist50 : null;
+      const macdHistogram = ind.macdHistogram != null ? ind.macdHistogram : null;
+      const roc5 = ind.roc5 != null ? ind.roc5 : null;
+      const streak = ind.streak != null ? ind.streak : null;
+      const volRatio = ind.volRatio != null ? ind.volRatio : null;
+      const bollWidth = ind.bollWidth != null ? ind.bollWidth : null;
+      const ath = ind.ath != null ? ind.ath : (data.ath || null);
       const badge = document.getElementById(p + 'SignalBadge');
       const icon = document.getElementById(p + 'SignalIcon');
       const label = document.getElementById(p + 'SignalLabel');
@@ -476,7 +499,6 @@
       document.getElementById(p + 'MetricPrice').textContent = price ? fmtPrice(price) : '--';
       document.getElementById(p + 'ScoreDisplay').textContent = '评分 ' + sText;
 
-      const { sma20, rsi, drawdown, dist20 } = indicators;
       const aboveSMA = dist20 >= 0;
 
       document.getElementById(p + 'MetricSMA').textContent = sma20 ? fmtPrice(sma20) : '--';
@@ -508,13 +530,18 @@
         ddSt.innerHTML = '<span class="indicator ' + dc + '">' + dt + '</span>';
       }
 
-      // 信号明细
+      // 信号明细（兼容新旧格式）
       function renderSignals() {
         const el = document.getElementById(p + 'DetailsContent');
+        // 旧版信号是字符串数组，新版是带weight的对象数组
+        const buyList = (signalsData.buy || []).map(s => typeof s === 'string' ? { text: s, weight: 0 } : s);
+        const sellList = (signalsData.sell || []).map(s => typeof s === 'string' ? { text: s, weight: 0 } : s);
+        const holdList = (signalsData.hold || []).map(s => typeof s === 'string' ? { text: s, weight: 0 } : s);
+
         const groups = [
-          { title: '📈 买入信号（+' + signals.buy.reduce((a, s) => a + (s.weight || 0), 0).toFixed(1) + '分）', items: signals.buy, cls: 'buy' },
-          { title: '📉 卖出信号（-' + signals.sell.reduce((a, s) => a + (s.weight || 0), 0).toFixed(1) + '分）', items: signals.sell, cls: 'sell' },
-          { title: '➖ 中性', items: signals.hold, cls: 'hold' },
+          { title: '📈 买入信号（+' + buyList.reduce((a, s) => a + (s.weight || 0), 0).toFixed(1) + '分）', items: buyList, cls: 'buy' },
+          { title: '📉 卖出信号（-' + sellList.reduce((a, s) => a + (s.weight || 0), 0).toFixed(1) + '分）', items: sellList, cls: 'sell' },
+          { title: '➖ 中性', items: holdList, cls: 'hold' },
         ];
         el.innerHTML = groups.map(g => {
           if (!g.items.length) return '';
@@ -531,17 +558,17 @@
       }
       renderSignals();
 
-      // 指标一栏
+      // 指标一栏（兼容新旧格式）
       const items = [
-        { name: '10周均线偏离', val: indicators.dist10 != null ? fmtPct(indicators.dist10) : '--' },
-        { name: '20周均线偏离', val: indicators.dist20 != null ? fmtPct(indicators.dist20) : '--' },
-        { name: '50周均线偏离', val: indicators.dist50 != null ? fmtPct(indicators.dist50) : '--' },
-        { name: 'MACD柱线', val: indicators.macdHistogram != null ? indicators.macdHistogram.toExponential(0) : '--' },
-        { name: 'ROC 5周', val: indicators.roc5 != null ? fmtPct(indicators.roc5) : '--' },
-        { name: '连涨/跌周数', val: indicators.streak ? (indicators.streak > 0 ? '+' + indicators.streak : '' + indicators.streak) + '周' : '--' },
-        { name: '成交量比', val: indicators.volRatio != null ? indicators.volRatio.toFixed(1) + 'x' : '--' },
-        { name: '布林带宽', val: indicators.bollWidth != null ? indicators.bollWidth.toFixed(1) + '%' : '--' },
-        { name: '前高', val: indicators.ath ? fmtPrice(indicators.ath) : '--' },
+        { name: '10周均线偏离', val: dist10 != null ? fmtPct(dist10) : '--' },
+        { name: '20周均线偏离', val: dist20 != null ? fmtPct(dist20) : '--' },
+        { name: '50周均线偏离', val: dist50 != null ? fmtPct(dist50) : '--' },
+        { name: 'MACD柱线', val: macdHistogram != null ? macdHistogram.toExponential(0) : '--' },
+        { name: 'ROC 5周', val: roc5 != null ? fmtPct(roc5) : '--' },
+        { name: '连涨/跌周数', val: streak ? (streak > 0 ? '+' + streak : '' + streak) + '周' : '--' },
+        { name: '成交量比', val: volRatio != null ? volRatio.toFixed(1) + 'x' : '--' },
+        { name: '布林带宽', val: bollWidth != null ? bollWidth.toFixed(1) + '%' : '--' },
+        { name: '前高', val: ath ? fmtPrice(ath) : '--' },
       ];
       document.getElementById(p + 'IndGrid').innerHTML = items.map(i => '<div class="ind-item"><span class="name">' + i.name + '</span><span class="val">' + i.val + '</span></div>').join('');
 

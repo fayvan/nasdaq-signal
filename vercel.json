@@ -1,11 +1,7 @@
 {
   "functions": {
-    "api/signals.mjs": { "maxDuration": 30 },
-    "api/fund-nav.mjs": { "maxDuration": 30 },
-    "api/fund-detect.mjs": { "maxDuration": 15 }
-  },
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/app.js" }
-  ]
+    "api/signals.mjs": { "memory": 128, "maxDuration": 30 },
+    "api/fund-nav.mjs": { "memory": 128, "maxDuration": 30 },
+    "api/fund-detect.mjs": { "memory": 128, "maxDuration": 15 }
+  }
 }

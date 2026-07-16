@@ -4,11 +4,5 @@
     "api/fund-nav.mjs": { "memory": 128, "maxDuration": 30 },
     "api/fund-detect.mjs": { "memory": 128, "maxDuration": 15 }
   },
-  "builds": [
-    { "src": "index.js", "use": "@vercel/node" }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/index.js" }
-  ]
+  "outputDirectory": "."
 }

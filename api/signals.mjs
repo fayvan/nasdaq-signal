@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     market = (url.searchParams.get('market') || 'us').toLowerCase();
 
     const symbol = market === 'cn' ? '000300.SS' : '%5ENDX';
-    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2y&interval=1wk&includePrePost=false`;
+    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=2y&interval=1wk&includePrePost=false`;
 
     const resp = await fetch(chartUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },

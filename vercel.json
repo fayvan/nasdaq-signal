@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/signals.mjs": { "memory": 128, "maxDuration": 30 },
+    "api/fund-nav.mjs": { "memory": 128, "maxDuration": 30 },
+    "api/fund-detect.mjs": { "memory": 128, "maxDuration": 15 }
+  }
+}

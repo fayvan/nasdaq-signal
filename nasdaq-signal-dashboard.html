@@ -76,6 +76,10 @@
     .fund-chip.empty:hover { border-color: var(--blue); color: var(--blue); }
     .fund-nav-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; min-height: 22px; }
     .fund-nav-item { font-size: 11px; padding: 2px 8px; background: var(--bg-primary); border-radius: 10px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+    .summary-row { font-size: 12px; color: var(--text-secondary); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 8px; line-height: 1.7; }
+    .summary-row .label { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 2px; }
+    .summary-row .verdict { font-weight: 600; }
+    .summary-row .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-right: 4px; }
 
     .signal-section { margin-bottom: 12px; }
     .signal-badge {
@@ -197,6 +201,15 @@
       </button>
     </div>
 
+    <!-- 基金代码管理 -->
+    <section class="fund-manager-section">
+      <div class="fund-input-row">
+        <input type="text" id="fundInput" placeholder="输入基金代码后回车，如 160213" maxlength="10">
+        <button class="btn" onclick="addFundCode()" style="flex:0 0 auto;padding:7px 14px;">+ 添加</button>
+        <span style="font-size:10px;color:var(--text-muted);white-space:nowrap;" id="fundMarketHint">→ 当前标签页</span>
+      </div>
+    </section>
+
     <!-- ════════════ US PANEL ════════════ -->
     <div class="tab-panel active" id="panel-us">
       <div class="fund-bar" id="fundBarUs">
@@ -206,6 +219,7 @@
         <span class="fund-chip approx">539002 ≈</span>
       </div>
       <div class="fund-nav-row" id="fundNavUs"></div>
+      <div class="summary-row" id="usSummary"></div>
 
       <section class="signal-section">
         <div class="signal-badge loading" id="usSignalBadge">
@@ -236,6 +250,18 @@
 
       <section class="indicator-panel"><h3>📐 参考指标</h3><div class="ind-grid" id="usIndGrid"></div></section>
 
+      <!-- 市场情绪 -->
+      <section class="indicator-panel" id="usSentimentPanel">
+        <h3>🔥 市场热度与情绪</h3>
+        <div id="usSentimentContent"></div>
+      </section>
+
+      <!-- 机构行为 -->
+      <section class="indicator-panel" id="usInstPanel">
+        <h3>🏦 机构走向分析</h3>
+        <div id="usInstContent"></div>
+      </section>
+
       <div class="trade-note">
         ⏰ 15:00前下单，按<b>今晚美股收盘价</b>成交，实时净值需等晚间
       </div>
@@ -255,6 +281,7 @@
         <span class="fund-chip active">519770</span>
       </div>
       <div class="fund-nav-row" id="fundNavCn"></div>
+      <div class="summary-row" id="cnSummary"></div>
 
       <section class="signal-section">
         <div class="signal-badge loading" id="cnSignalBadge">
@@ -285,6 +312,18 @@
 
       <section class="indicator-panel"><h3>📐 参考指标</h3><div class="ind-grid" id="cnIndGrid"></div></section>
 
+      <!-- 市场情绪 -->
+      <section class="indicator-panel" id="cnSentimentPanel">
+        <h3>🔥 市场热度与情绪</h3>
+        <div id="cnSentimentContent"></div>
+      </section>
+
+      <!-- 机构行为 -->
+      <section class="indicator-panel" id="cnInstPanel">
+        <h3>🏦 机构走向分析</h3>
+        <div id="cnInstContent"></div>
+      </section>
+
       <div class="trade-note">
         ✅ 15:00前申购/赎回，按<b>当日收盘净值</b>成交，当天可实时查看估值
       </div>
@@ -312,12 +351,74 @@
   <script>
     const activeTab = { current: 'us' };
 
+    // ── 基金代码管理 ──
+
+    const STORAGE_KEY = 'ndx_fund_list_v2';
+
+    function getFundList(market) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY + '_' + market);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+      // 默认值
+      if (market === 'us') return ['160213', '019548', '012920', '539002'];
+      return ['519770'];
+    }
+
+    function saveFundList(market, list) {
+      localStorage.setItem(STORAGE_KEY + '_' + market, JSON.stringify(list));
+    }
+
+    function renderFundBar(market) {
+      const id = market === 'us' ? 'fundBarUs' : 'fundBarCn';
+      const p = document.getElementById(id);
+      const list = getFundList(market);
+      p.innerHTML = list.map((code, i) =>
+        '<span class="fund-chip active">' + code +
+        '<span class="del" onclick="removeFundCode(\'' + market + '\',' + i + ')" title="移除">×</span></span>'
+      ).join('') || '<span class="fund-chip empty">暂无代码</span>';
+      // 刷新净值
+      refreshFundNavs(market);
+    }
+
+    window.addFundCode = function() {
+      const input = document.getElementById('fundInput');
+      const code = input.value.trim();
+      const market = activeTab.current;
+      if (!code) return;
+      const list = getFundList(market);
+      if (list.includes(code)) {
+        document.getElementById('errorMsg').textContent = '⚠️ 该基金代码已存在';
+        return;
+      }
+      list.push(code);
+      saveFundList(market, list);
+      renderFundBar(market);
+      input.value = '';
+      document.getElementById('errorMsg').textContent = '';
+    };
+
+    window.removeFundCode = function(market, idx) {
+      const list = getFundList(market);
+      list.splice(idx, 1);
+      saveFundList(market, list);
+      renderFundBar(market);
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('fundInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') addFundCode();
+      });
+    });
+
     function switchTab(tab) {
       activeTab.current = tab;
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
       document.getElementById('panel-' + tab).classList.add('active');
+      // 切换标签页时更新输入框提示
+      document.getElementById('fundMarketHint').textContent = '→ ' + (tab === 'us' ? '美股标签' : 'A股标签');
     }
 
     // ── API ──
@@ -346,9 +447,8 @@
 
     async function refreshFundNavs(market) {
       const p = market === 'us' ? 'us' : 'cn';
-      const codes = market === 'us'
-        ? ['160213', '019548', '012920', '539002']
-        : ['519770'];
+      const codes = getFundList(market);
+      if (!codes.length) { document.getElementById('fundNav' + p.toUpperCase()).innerHTML = ''; return; }
       const container = document.getElementById('fundNav' + p.toUpperCase());
       container.innerHTML = '<span style="font-size:10px;color:var(--text-muted);">加载净值中...</span>';
 
@@ -492,7 +592,11 @@
       else if (overall === 'SELL') { cls = 'signal-sell'; ic = '🔴'; lb = '卖出'; }
       else { cls = 'signal-hold'; ic = '🟡'; lb = '持有'; }
       badge.classList.add(cls);
-      icon.textContent = ic; label.textContent = lb; sub.textContent = intensity;
+      icon.textContent = ic; label.textContent = lb;
+
+      // 显示策略标签
+      const strategyText = data.strategy ? data.strategy : (market === 'us' ? '趋势跟踪' : '均值回归');
+      sub.textContent = intensity + ' · ' + strategyText;
       const sText = score >= 0 ? '+' + score.toFixed(1) : score.toFixed(1);
       document.getElementById(p + 'SignalScore').textContent = '综合评分：' + sText;
 
@@ -559,44 +663,127 @@
       renderSignals();
 
       // 指标一栏（兼容新旧格式）
+      const adx = ind.adx != null ? ind.adx : null;
+      const atr = ind.atr != null ? ind.atr : null;
+      const atrPercent = ind.atrPercent != null ? ind.atrPercent : null;
+      const stddev = ind.stddev != null ? ind.stddev : null;
+      const roc10 = ind.roc10 != null ? ind.roc10 : null;
+      const roc20 = ind.roc20 != null ? ind.roc20 : null;
       const items = [
         { name: '10周均线偏离', val: dist10 != null ? fmtPct(dist10) : '--' },
         { name: '20周均线偏离', val: dist20 != null ? fmtPct(dist20) : '--' },
         { name: '50周均线偏离', val: dist50 != null ? fmtPct(dist50) : '--' },
         { name: 'MACD柱线', val: macdHistogram != null ? macdHistogram.toExponential(0) : '--' },
         { name: 'ROC 5周', val: roc5 != null ? fmtPct(roc5) : '--' },
+        { name: 'ROC 20周', val: roc20 != null ? fmtPct(roc20) : '--' },
         { name: '连涨/跌周数', val: streak ? (streak > 0 ? '+' + streak : '' + streak) + '周' : '--' },
-        { name: '成交量比', val: volRatio != null ? volRatio.toFixed(1) + 'x' : '--' },
+        { name: '成交比', val: volRatio != null ? volRatio.toFixed(1) + 'x' : '--' },
         { name: '布林带宽', val: bollWidth != null ? bollWidth.toFixed(1) + '%' : '--' },
-        { name: '前高', val: ath ? fmtPrice(ath) : '--' },
+        { name: 'ADX', val: adx != null ? adx.toFixed(0) : '--' },
+        { name: 'ATR%', val: atrPercent != null ? atrPercent.toFixed(1) + '%' : '--' },
+        { name: '波动率(σ)', val: stddev != null ? stddev.toFixed(1) + '%' : '--' },
+        { name: 'ROC 20周', val: roc20 != null ? fmtPct(roc20) : '--' },
       ];
       document.getElementById(p + 'IndGrid').innerHTML = items.map(i => '<div class="ind-item"><span class="name">' + i.name + '</span><span class="val">' + i.val + '</span></div>').join('');
 
-      // 操作建议
-      const fundLabel = market === 'us' ? '160213/019548/012920/539002' : '519770';
+      // ── 市场综合解读 ──
+      const summaryEl = document.getElementById(p + 'Summary');
+      if (data.summary) {
+        const sm = data.summary;
+        const envBadge = sm.environment === '趋势行情' ? 'bullish' : 'neutral';
+        const riskBadge = sm.risk === '高波动' ? 'bearish' : 'neutral';
+        summaryEl.innerHTML =
+          '<div class="label">📊 市场综合解读 <span class="badge ' + envBadge + '">' + sm.environment + '</span> <span class="badge ' + riskBadge + '">' + sm.risk + '</span></div>' +
+          '<div style="color:var(--text-primary);">' + sm.text + '</div>' +
+          '<div class="verdict" style="margin-top:4px;color:' + (overall === 'BUY' ? 'var(--green)' : overall === 'SELL' ? 'var(--red)' : 'var(--amber)') + ';">' + sm.verdict + '</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">' + (sm.scoreBreakdown || '') + '</div>';
+      } else {
+        summaryEl.innerHTML = '<div class="label">📊 市场解读</div><div>信号数据加载中...</div>';
+      }
+
+      // ── 市场情绪 ──
+      const sentimentEl = document.getElementById(p + 'SentimentContent');
+      if (data.sentiment) {
+        const sm = data.sentiment;
+        const heatClass = sm.heatIndex > 65 ? 'bullish' : sm.heatIndex > 35 ? 'neutral' : 'bearish';
+        const greedClass = sm.greedIndex > 65 ? 'bearish' : sm.greedIndex > 35 ? 'neutral' : 'bullish';
+        const divClass = sm.divergence.includes('顶背离') ? 'bearish' : sm.divergence.includes('底背离') ? 'bullish' : 'neutral';
+        sentimentEl.innerHTML =
+          '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+            '<div style="flex:1;min-width:120px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;">' +
+              '<div style="font-size:10px;color:var(--text-muted);">贪婪指数</div>' +
+              '<div style="font-size:22px;font-weight:700;margin:4px 0;">' + sm.icon + ' ' + sm.greedIndex + '</div>' +
+              '<div><span class="indicator ' + greedClass + '">' + sm.label + '</span></div>' +
+            '</div>' +
+            '<div style="flex:1;min-width:120px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;">' +
+              '<div style="font-size:10px;color:var(--text-muted);">市场热度</div>' +
+              '<div style="font-size:22px;font-weight:700;margin:4px 0;">🔥 ' + sm.heatIndex + '</div>' +
+              '<div><span class="indicator ' + heatClass + '">' + (sm.heatIndex > 65 ? '活跃' : sm.heatIndex > 35 ? '中性' : '冷清') + '</span></div>' +
+            '</div>' +
+            '<div style="flex:1;min-width:120px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;">' +
+              '<div style="font-size:10px;color:var(--text-muted);">涨跌趋势</div>' +
+              '<div style="font-size:22px;font-weight:700;margin:4px 0;">📊 ' + (sm.advanceDecline?.value || 0) + '</div>' +
+              '<div><span class="indicator ' + (sm.advanceDecline?.label === '强势' ? 'bullish' : sm.advanceDecline?.label === '偏强' ? 'bullish' : sm.advanceDecline?.label === '弱势' ? 'bearish' : 'neutral') + '">' + (sm.advanceDecline?.label || '--') + '</span></div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="margin-top:8px;font-size:12px;color:var(--text-secondary);line-height:1.6;">' +
+            '<div>🔍 动量背离：<span style="color:' + (sm.divergence.includes('顶背离') ? 'var(--red)' : sm.divergence.includes('底背离') ? 'var(--green)' : 'var(--text-secondary)') + ';"><b>' + sm.divergence + '</b></span></div>' +
+          '</div>';
+      } else sentimentEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">无情绪数据</div>';
+
+      // ── 机构走向 ──
+      const instEl = document.getElementById(p + 'InstContent');
+      if (data.institutional) {
+        const inst = data.institutional;
+        const flowClass = inst.flowLabel === '机构净买入' ? 'bullish' : inst.flowLabel === '机构净卖出' ? 'bearish' : 'neutral';
+        const partClass = inst.participation === '高' ? 'bearish' : 'neutral';
+        instEl.innerHTML =
+          '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+            '<div style="flex:1;min-width:120px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;">' +
+              '<div style="font-size:10px;color:var(--text-muted);">机构资金</div>' +
+              '<div style="font-size:18px;font-weight:700;margin:4px 0;">' +
+                (inst.flowLabel === '机构净买入' ? '📈' : inst.flowLabel === '机构净卖出' ? '📉' : '⚖️') + ' ' + inst.flowLabel + '</div>' +
+            '</div>' +
+            '<div style="flex:1;min-width:120px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;">' +
+              '<div style="font-size:10px;color:var(--text-muted);">机构参与度</div>' +
+              '<div style="font-size:18px;font-weight:700;margin:4px 0;">🏛️ ' + inst.participation + '</div>' +
+            '</div>' +
+            '<div style="flex:1;min-width:120px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;">' +
+              '<div style="font-size:10px;color:var(--text-muted);">大单买入/卖出</div>' +
+              '<div style="font-size:18px;font-weight:700;margin:4px 0;">🟢' + (inst.bigBuyCount || 0) + ' 🔴' + (inst.bigSellCount || 0) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="margin-top:8px;font-size:12px;color:var(--text-secondary);line-height:1.6;">' +
+            (inst.details && inst.details.length ? inst.details.map(d => '<div>• ' + d + '</div>').join('') : '<div>• 近期无明显机构级交易信号</div>') +
+          '</div>';
+      } else instEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">无机构数据</div>';
+
+      // 操作建议（使用当前标签页的基金列表）
+      const fundCodes = getFundList(market).join('/') || (market === 'us' ? '纳指100相关' : '沪深300相关');
       const act = document.getElementById(p + 'ActionText');
       const note = document.getElementById(p + 'ActionNote');
+      const summaryText = data.summary ? data.summary.verdict : '';
 
       if (overall === 'BUY') {
         let detail = '';
-        if (score >= 8) detail = '多维度强烈共振，建议重点加仓。分3笔：先入50%，再跌3%补30%，再跌5%补20%';
-        else if (score >= 5) detail = '趋势+动能均指向买入，建议加仓20%-30%仓位';
+        if (score >= 8) detail = '多维度强烈共振，历史级别买入窗口，可重点加仓';
+        else if (score >= 5) detail = '多个买入信号触发，建议加仓20%-30%仓位';
         else detail = '有轻微买入信号，建议轻仓试探或维持周定投';
-        act.textContent = intensity + ' · ' + fundLabel;
+        act.textContent = intensity + ' · ' + fundCodes;
         act.style.color = 'var(--green)';
-        note.textContent = '建议：' + detail + '。仅供参考，单只基金不超过总仓位20%';
+        note.textContent = '📌 ' + (summaryText || detail) + '。仅供参考，单只基金不超过总仓位20%';
       } else if (overall === 'SELL') {
         let detail = '';
         if (score <= -8) detail = '过热信号强烈，建议大幅减仓至30%以下';
         else if (score <= -5) detail = '多个卖出信号，建议减仓30%-50%锁定利润';
         else detail = '出现卖出信号，建议小幅减仓10%-20%';
-        act.textContent = intensity + ' · ' + fundLabel;
+        act.textContent = intensity + ' · ' + fundCodes;
         act.style.color = 'var(--red)';
-        note.textContent = '建议：' + detail + '。卖出后可留20%底仓观察';
+        note.textContent = '📌 ' + (summaryText || detail) + '。卖出后可留20%底仓观察';
       } else {
-        act.textContent = '⏸️ 持有/观望 · ' + fundLabel;
+        act.textContent = '⏸️ 持有/观望 · ' + fundCodes;
         act.style.color = 'var(--amber)';
-        note.textContent = '建议：各维度方向不统一或无明确信号，保持现有仓位等待下一窗口。可维持周定投';
+        note.textContent = '📌 ' + (summaryText || '各维度方向不统一或无明确信号，保持现有仓位等待下一窗口。可维持周定投');
       }
     }
 
@@ -642,7 +829,11 @@
       btn.disabled = false; btn.innerHTML = '🔄 刷新全部';
     }
 
-    window.addEventListener('DOMContentLoaded', refreshAll);
+    window.addEventListener('DOMContentLoaded', () => {
+      renderFundBar('us');
+      renderFundBar('cn');
+      refreshAll();
+    });
   </script>
 </body>
 </html>

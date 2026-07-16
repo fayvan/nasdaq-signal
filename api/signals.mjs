@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     const signals = computeSignals(candles, market);
     signals.market = market;
     signals.vix = vixData;
+    signals._version = 'v3.0-new-engine'; // 用于验证部署版本
     res.status(200).json({ ok: true, data: signals });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message, market });

@@ -230,6 +230,8 @@ function computeSignals(candles, market) {
   const rsiVal = rsi[last];
   const macdHist = macd.histogram[last];
   const prevMacdHist = macd.histogram[last - 1];
+  const macdLine = macd.macdLine[last];
+  const macdSignal = macd.signalLine[last];
   const bollWidth = boll.width[last], bollUpper = boll.upper[last], bollLower = boll.lower[last];
   const curVol = volumes[last];
   const avgVol = volSMA[last];

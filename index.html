@@ -666,9 +666,12 @@
 
       // 显示策略标签和分析类型
       const strategyText = data.strategy ? data.strategy : (market === 'us' ? '趋势跟踪' : '均值回归');
-      const stockLabel = data.isStock ? '📌 个股分析 · ' + (data.name || '') : '📊 指数分析 · ' + (data.name || (market === 'us' ? '纳指100' : '沪深300'));
+      const assetName = data.displayName || data.name || (market === 'us' ? '纳指100' : '沪深300');
+      const codeLabel = data.isStock ? (data.name || '') : '';
+      const stockLabel = data.isStock
+        ? '📌 个股分析 · ' + assetName + (codeLabel ? ' (' + codeLabel + ')' : '')
+        : '📊 指数分析 · ' + assetName;
       sub.textContent = intensity + ' · ' + strategyText;
-      // 分析类型标识
       const typeEl = document.getElementById(p + 'AnalysisType');
       if (typeEl) typeEl.textContent = stockLabel;
       const sText = score >= 0 ? '+' + score.toFixed(1) : score.toFixed(1);

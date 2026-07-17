@@ -48,6 +48,14 @@ export default async function handler(req, res) {
     })).filter(c => c.close !== null && c.close > 0)
       .sort((a, b) => a.date - b.date);
 
+    // 获取中文名称（Yahoo 返回的 meta 中可能包含）
+    let displayName = '';
+    try {
+      if (result.meta && result.meta.shortName) displayName = result.meta.shortName;
+      else if (result.meta && result.meta.longName) displayName = result.meta.longName;
+      else if (result.meta && result.meta.symbol) displayName = result.meta.symbol;
+    } catch {};
+
     // VIX 数据（美股专用）
     const vixData = market !== 'cn' ? await fetchVIX().catch(() => null) : null;
 
@@ -58,9 +66,11 @@ export default async function handler(req, res) {
     // 标识是否个股模式
     if (code) {
       signals.name = code;
+      signals.displayName = displayName || code;
       signals.isStock = true;
       signals.analysisType = '个股分析';
     } else {
+      signals.displayName = displayName || (market === 'cn' ? '沪深300' : '纳指100');
       signals.analysisType = market === 'cn' ? '沪深300指数分析' : '纳指100指数分析';
     }
     res.status(200).json({ ok: true, data: signals });

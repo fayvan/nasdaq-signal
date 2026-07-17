@@ -284,41 +284,32 @@
       </div>
       <div class="stock-input-row">
         <input type="text" id="cnStockInput" placeholder="输入A股股票代码后回车，如 600519" maxlength="12">
-        <button class="btn" onclick="cnStockSearch()" style="flex:0 0 auto;padding:7px 14px;">🔍 分析</button>
+        <button class="btn" onclick="cnStockSearch()" style="flex:0 0 auto;padding:7px 14px;">🔍 分析个股</button>
       </div>
       <div class="fund-nav-row" id="fundNavCn"></div>
 
-      <!-- 未输入代码时的提示 -->
-      <div id="cnPlaceholder" style="padding:60px 20px;text-align:center;color:var(--text-muted);font-size:15px;line-height:2.2;">
-        <div style="font-size:40px;margin-bottom:12px;">📈</div>
-        输入 A 股股票代码开始分析<br>
-        <span style="font-size:13px;color:var(--text-secondary);">例如：600519（贵州茅台）· 000858（五粮液）</span><br>
-        <span style="font-size:12px;">沪市 6/9开头 · 深市 0/3/2开头</span>
-      </div>
-
-      <!-- 分析结果区域（默认隐藏） -->
-      <div id="cnResults" style="display:none;">
+      <!-- 默认展示沪深300基础数据 -->
+      <div id="cnDefault">
         <div class="summary-row" id="cnSummary"></div>
-        <!-- 操作建议上移到代码下方 -->
         <section class="action-section">
           <div class="action-card">
-            <div class="action-label">操作建议（仅供参考）</div>
-            <div class="action-text" id="cnActionText">--</div>
-            <div class="action-note" id="cnActionNote"></div>
+            <div class="action-label">沪深300指数参考（仅供参考）</div>
+            <div class="action-text" id="cnIndexActionText">--</div>
+            <div class="action-note" id="cnIndexActionNote"></div>
           </div>
         </section>
         <section class="signal-section">
           <div class="signal-badge loading" id="cnSignalBadge">
             <span class="signal-icon" id="cnSignalIcon">⟳</span>
-            <span class="signal-label" id="cnSignalLabel">分析中</span>
-            <span class="signal-sub" id="cnSignalSub">计算信号中...</span>
+            <span class="signal-label" id="cnSignalLabel">连接中</span>
+            <span class="signal-sub" id="cnSignalSub">获取数据中...</span>
             <span class="signal-score" id="cnSignalScore"></span>
           </div>
         </section>
         <div style="font-size:11px;color:var(--text-muted);text-align:center;margin:-8px 0 8px;" id="cnAnalysisType"></div>
         <section class="metrics" id="cnMetrics">
           <div class="metric-card highlight">
-            <div class="metric-label">股票现价</div>
+            <div class="metric-label">沪深300现价</div>
             <div class="metric-value" id="cnMetricPrice">--</div>
             <div class="metric-sub" id="cnScoreDisplay">--</div>
           </div>
@@ -328,7 +319,7 @@
         </section>
         <section class="details"><h3>📋 信号明细</h3><div id="cnDetailsContent"></div></section>
         <section class="chart-section">
-          <h3>📈 价格走势</h3>
+          <h3>📈 沪深300走势</h3>
           <canvas id="cnChartCanvas" class="chart-canvas" width="800" height="220"></canvas>
         </section>
         <section class="indicator-panel"><h3>📐 参考指标</h3><div class="ind-grid" id="cnIndGrid"></div></section>
@@ -348,6 +339,56 @@
           ✅ 15:00前申购/赎回，按<b>当日收盘净值</b>成交，当天可实时查看估值
         </div>
       </div>
+
+      <!-- 个股分析结果区域（默认隐藏） -->
+      <div id="cnStockResults" style="display:none;">
+        <div class="summary-row" id="cnStockSummary"></div>
+        <section class="action-section">
+          <div class="action-card">
+            <div class="action-label">个股操作建议（仅供参考）</div>
+            <div class="action-text" id="cnActionText">--</div>
+            <div class="action-note" id="cnActionNote"></div>
+          </div>
+        </section>
+        <section class="signal-section">
+          <div class="signal-badge loading" id="cnStockSignalBadge">
+            <span class="signal-icon" id="cnStockSignalIcon">⟳</span>
+            <span class="signal-label" id="cnStockSignalLabel">分析中</span>
+            <span class="signal-sub" id="cnStockSignalSub">计算信号中...</span>
+            <span class="signal-score" id="cnStockSignalScore"></span>
+          </div>
+        </section>
+        <div style="font-size:11px;color:var(--text-muted);text-align:center;margin:-8px 0 8px;" id="cnStockAnalysisType"></div>
+        <section class="metrics" id="cnStockMetrics">
+          <div class="metric-card highlight">
+            <div class="metric-label">股票现价</div>
+            <div class="metric-value" id="cnStockMetricPrice">--</div>
+            <div class="metric-sub" id="cnStockScoreDisplay">--</div>
+          </div>
+          <div class="metric-card"><div class="metric-label">20周均线</div><div class="metric-value" id="cnStockMetricSMA">--</div><div class="metric-sub" id="cnStockMetricSMAStatus">--</div></div>
+          <div class="metric-card"><div class="metric-label">RSI(14)</div><div class="metric-value" id="cnStockMetricRSI">--</div><div class="metric-sub" id="cnStockMetricRSIStatus">--</div></div>
+          <div class="metric-card"><div class="metric-label">距前高</div><div class="metric-value" id="cnStockMetricDD">--</div><div class="metric-sub" id="cnStockMetricDDStatus">--</div></div>
+        </section>
+        <section class="details"><h3>📋 信号明细</h3><div id="cnStockDetailsContent"></div></section>
+        <section class="chart-section">
+          <h3>📈 价格走势</h3>
+          <canvas id="cnStockChartCanvas" class="chart-canvas" width="800" height="220"></canvas>
+        </section>
+        <section class="indicator-panel"><h3>📐 参考指标</h3><div class="ind-grid" id="cnStockIndGrid"></div></section>
+        <section class="indicator-panel" id="cnStockSentimentPanel">
+          <h3>🔥 市场热度与情绪</h3>
+          <div id="cnStockSentimentContent"></div>
+        </section>
+        <section class="indicator-panel" id="cnStockInstPanel">
+          <h3>🏦 机构走向分析</h3>
+          <div id="cnStockInstContent"></div>
+        </section>
+        <section class="indicator-panel" id="cnStockKwavePanel">
+          <h3>🌊 康波周期定位</h3>
+          <div id="cnStockKwaveContent"></div>
+        </section>
+      </div>
+    </div>
     </div>
 
     <div class="disclaimer">

@@ -55,8 +55,14 @@ export default async function handler(req, res) {
     signals.market = market;
     signals.vix = vixData;
     signals._version = 'v3.0-new-engine';
-    // 个股模式下显示代码
-    if (code) signals.name = code;
+    // 标识是否个股模式
+    if (code) {
+      signals.name = code;
+      signals.isStock = true;
+      signals.analysisType = '个股分析';
+    } else {
+      signals.analysisType = market === 'cn' ? '沪深300指数分析' : '纳指100指数分析';
+    }
     res.status(200).json({ ok: true, data: signals });
   } catch (err) {
     // catch 里绝对不能再抛异常

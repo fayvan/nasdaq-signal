@@ -230,6 +230,7 @@
           <span class="signal-score" id="usSignalScore"></span>
         </div>
       </section>
+      <div style="font-size:11px;color:var(--text-muted);text-align:center;margin:-8px 0 8px;" id="usAnalysisType"></div>
 
       <section class="metrics" id="usMetrics">
         <div class="metric-card highlight">
@@ -296,6 +297,7 @@
           <span class="signal-score" id="cnSignalScore"></span>
         </div>
       </section>
+      <div style="font-size:11px;color:var(--text-muted);text-align:center;margin:-8px 0 8px;" id="cnAnalysisType"></div>
 
       <section class="metrics" id="cnMetrics">
         <div class="metric-card highlight">
@@ -662,9 +664,13 @@
       badge.classList.add(cls);
       icon.textContent = ic; label.textContent = lb;
 
-      // 显示策略标签
+      // 显示策略标签和分析类型
       const strategyText = data.strategy ? data.strategy : (market === 'us' ? '趋势跟踪' : '均值回归');
+      const stockLabel = data.isStock ? '📌 个股分析 · ' + (data.name || '') : '📊 指数分析 · ' + (data.name || (market === 'us' ? '纳指100' : '沪深300'));
       sub.textContent = intensity + ' · ' + strategyText;
+      // 分析类型标识
+      const typeEl = document.getElementById(p + 'AnalysisType');
+      if (typeEl) typeEl.textContent = stockLabel;
       const sText = score >= 0 ? '+' + score.toFixed(1) : score.toFixed(1);
       document.getElementById(p + 'SignalScore').textContent = '综合评分：' + sText;
 
@@ -826,8 +832,15 @@
           '</div>';
       } else instEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">无机构数据</div>';
 
-      // 操作建议（使用当前标签页的基金列表）
-      const fundCodes = getFundList(market).join('/') || (market === 'us' ? '纳指100相关' : '沪深300相关');
+      // 操作建议
+      const isStockMode = data.isStock;
+      let displayLabel;
+      if (isStockMode) {
+        displayLabel = data.name || (market === 'us' ? '美股个股' : 'A股个股');
+      } else {
+        const fundCodes = getFundList(market).join(' / ') || (market === 'us' ? '纳指100' : '沪深300');
+        displayLabel = '📊 ' + (market === 'us' ? '纳指100指数' : '沪深300指数') + ' · 基金: ' + fundCodes;
+      }
       const act = document.getElementById(p + 'ActionText');
       const note = document.getElementById(p + 'ActionNote');
       const summaryText = data.summary ? data.summary.verdict : '';
@@ -837,7 +850,7 @@
         if (score >= 8) detail = '多维度强烈共振，历史级别买入窗口，可重点加仓';
         else if (score >= 5) detail = '多个买入信号触发，建议加仓20%-30%仓位';
         else detail = '有轻微买入信号，建议轻仓试探或维持周定投';
-        act.textContent = intensity + ' · ' + fundCodes;
+        act.textContent = '🟢 买入 · ' + displayLabel;
         act.style.color = 'var(--green)';
         note.textContent = '📌 ' + (summaryText || detail) + '。仅供参考，单只基金不超过总仓位20%';
       } else if (overall === 'SELL') {
@@ -845,11 +858,11 @@
         if (score <= -8) detail = '过热信号强烈，建议大幅减仓至30%以下';
         else if (score <= -5) detail = '多个卖出信号，建议减仓30%-50%锁定利润';
         else detail = '出现卖出信号，建议小幅减仓10%-20%';
-        act.textContent = intensity + ' · ' + fundCodes;
+        act.textContent = '🔴 卖出 · ' + displayLabel;
         act.style.color = 'var(--red)';
         note.textContent = '📌 ' + (summaryText || detail) + '。卖出后可留20%底仓观察';
       } else {
-        act.textContent = '⏸️ 持有/观望 · ' + fundCodes;
+        act.textContent = '🟡 持有/观望 · ' + displayLabel;
         act.style.color = 'var(--amber)';
         note.textContent = '📌 ' + (summaryText || '各维度方向不统一或无明确信号，保持现有仓位等待下一窗口。可维持周定投');
       }

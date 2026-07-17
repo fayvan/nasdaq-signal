@@ -11,8 +11,23 @@ export default async function handler(req, res) {
   try {
     const url = new URL(req.url, 'http://localhost');
     market = (url.searchParams.get('market') || 'us').toLowerCase();
+    const code = (url.searchParams.get('code') || '').trim().toUpperCase();
 
-    const symbol = market === 'cn' ? '000300.SS' : '%5ENDX';
+    // 确定数据源代码
+    let symbol;
+    if (code) {
+      // 个股模式
+      if (market === 'cn') {
+        // A股：沪市 6/9 开头 .SS，深市 0/3/2 开头 .SZ
+        if (/^(6|9)/.test(code)) symbol = code + '.SS';
+        else if (/^(0|3|2)/.test(code)) symbol = code + '.SZ';
+        else symbol = code + '.SS';
+      } else {
+        symbol = code;
+      }
+    } else {
+      symbol = market === 'cn' ? '000300.SS' : '%5ENDX';
+    }
     const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=2y&interval=1wk&includePrePost=false`;
 
     const resp = await fetch(chartUrl, {
@@ -40,6 +55,8 @@ export default async function handler(req, res) {
     signals.market = market;
     signals.vix = vixData;
     signals._version = 'v3.0-new-engine';
+    // 个股模式下显示代码
+    if (code) signals.name = code;
     res.status(200).json({ ok: true, data: signals });
   } catch (err) {
     // catch 里绝对不能再抛异常
@@ -311,6 +328,46 @@ function computeSignals(candles, market) {
   else if (volRatio < 0.5) add('hold', `严重缩量(${sf(volRatio)}x)`, 0);
 
   // ══════════════════════════════════════════════
+  //  综合安全边际分析（融合价值投资与周期框架）
+  // ══════════════════════════════════════════════
+
+  // 核心逻辑：价格 vs 价值的偏离程度决定安全边际
+  // 当价格远超均线系统时安全边际消失，触发卖出信号
+  if (dist20 > 0.15) add('sell', `价格远超20周均线${sf(dist20*100)}%，安全边际大幅收窄`, 3);
+  else if (dist20 > 0.10) add('sell', `价格偏离20周均线${sf(dist20*100)}%，安全边际不足`, 2);
+
+  // 长期偏离程度：50周均线反映更长周期的价值锚
+  if (dist50 > 0.20) add('sell', `较50周均线溢价${sf(dist50*100)}%，长期估值偏高`, 2.5);
+  else if (dist50 > 0.15) add('sell', `较50周均线溢价${sf(dist50*100)}%，进入高估区间`, 1.5);
+
+  // 盈利质量预警：价格与成交量的背离信号
+  // 放量下跌=市场对基本面恶化提前反应
+  if (roc10 < -0.08 && volRatio > 1.5) add('sell', `中期下跌${sf(roc10*100)}%伴随放量，资金主动离场`, 2.5);
+  if (roc10 > 0.15 && volRatio > 2) add('sell', `短期暴涨${sf(roc10*100)}%且成交异常放大，过热风险`, 2);
+
+  // 价格上涨但成交量萎缩 = 上涨动力衰竭
+  const priceUp = roc5 > 0;
+  const volShrink = volRatio < 0.6;
+  if (priceUp && volShrink) add('sell', `量价背离：价格上涨但成交萎缩，上涨动力不足`, 1.5);
+
+  // 基于康波周期的宏观定位
+  // 不同周期阶段采用不同的估值容忍度
+  const currentYear = new Date().getFullYear();
+  if (currentYear >= 2015 && currentYear < 2025) {
+    // 萧条期：保守策略，严格控制仓位
+    if (roc20 > 0.10) add('sell', `周期定位偏保守（康波萧条期），反弹${sf(roc20*100)}%建议减仓`, 2.5);
+    if (dist20 > 0.05) add('sell', `宏观环境偏弱，高于均线${sf(dist20*100)}%建议控制仓位`, 1.5);
+  } else if (currentYear >= 2025 && currentYear < 2035) {
+    // 回升期：适度放宽，但仍需警惕过热
+    if (roc20 > 0.30) add('sell', `周期回升期涨幅${sf(roc20*100)}%已偏高，注意回调风险`, 2);
+    if (roc5 > 0.10 && volRatio < 0.7) add('sell', `短期急涨${sf(roc5*100)}%但量能不足，有回调需求`, 1.5);
+  }
+
+  // 卖出信号共振加强
+  const totalSellWeight = allSignals.filter(s => s.impact === 'sell').reduce((a, s) => a + s.weight, 0);
+  if (totalSellWeight > 10) add('sell', `多个卖出信号共振（综合强度${sf(totalSellWeight)}），建议大幅减仓`, 2);
+
+  // ══════════════════════════════════════════════
   //  市场热度分析（Sentiment / Heat）
   // ══════════════════════════════════════════════
 
@@ -501,6 +558,20 @@ function computeSignals(candles, market) {
     const volDesc = volRatio > 2.5 ? '成交量异常放大' : volRatio > 1.5 ? '成交量偏大' :
       volRatio < 0.5 ? '成交量极度萎缩' : '成交量正常';
 
+    // 安全边际分析
+    let marginDesc = '';
+    if (dist20 > 0.15) marginDesc = '安全边际薄弱，估值偏高';
+    else if (dist20 > 0.08) marginDesc = '安全边际不足，需注意估值风险';
+    else if (dist20 < -0.10) marginDesc = '安全边际较厚，估值有吸引力';
+    else if (dist20 < -0.05) marginDesc = '安全边际充足，具备一定投资价值';
+    else marginDesc = '估值与安全边际处于合理区间';
+
+    // 周期定位
+    const currentYear = new Date().getFullYear();
+    let cycleDesc = '';
+    if (currentYear >= 2015 && currentYear < 2025) cycleDesc = '康波周期处于第五波萧条期末段';
+    else if (currentYear >= 2025 && currentYear < 2035) cycleDesc = '第六次康波回升期，AI/新能源驱动新周期';
+
     let verdict;
     if (overall === 'BUY') {
       if (totalScore >= 8) verdict = '🚀 多维度共振强烈，市场存在低估机会，是较好的中长期布局窗口';
@@ -517,9 +588,9 @@ function computeSignals(candles, market) {
     }
 
     return {
-      text: `${cfg.name}当前${trendDesc}，${rsiDesc}。${volDesc}，市场情绪${sentimentLabel}（${greedScore}分）。`,
+      text: `${cfg.name}当前${trendDesc}，${rsiDesc}。${marginDesc}。${volDesc}，市场情绪${sentimentLabel}（${greedScore}分）。`,
       verdict,
-      environment: '震荡行情',
+      environment: cycleDesc || '震荡行情',
       risk: isCN && atrPct > 4 ? '高波动' : '正常波动',
       scoreBreakdown: `买入信号${numBuy}个，卖出信号${numSell}个，综合得分${totalScore >= 0 ? '+' : ''}${sf(totalScore)}`,
     };

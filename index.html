@@ -80,6 +80,7 @@
     .summary-row .label { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 2px; }
     .summary-row .verdict { font-weight: 600; }
     .summary-row .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-right: 4px; }
+    .stock-input-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; margin-bottom: 4px; }
 
     .signal-section { margin-bottom: 12px; }
     .signal-badge {
@@ -280,6 +281,10 @@
       <div class="fund-bar" id="fundBarCn">
         <span class="fund-chip active">519770</span>
       </div>
+      <div class="stock-input-row">
+        <input type="text" id="cnStockInput" placeholder="输入A股股票代码后回车，如 600519" maxlength="12">
+        <button class="btn" onclick="cnStockSearch()" style="flex:0 0 auto;padding:7px 14px;">🔍 分析</button>
+      </div>
       <div class="fund-nav-row" id="fundNavCn"></div>
       <div class="summary-row" id="cnSummary"></div>
 
@@ -467,13 +472,32 @@
 
     // ── API ──
 
-    async function fetchSignals(market) {
+    async function fetchSignals(market, stockCode) {
       const base = window.location.origin;
-      const resp = await fetch(base + '/api/signals?market=' + market, { signal: AbortSignal.timeout(15000) });
+      let url = base + '/api/signals?market=' + market;
+      if (stockCode) url += '&code=' + stockCode;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const json = await resp.json();
       if (!json.ok) throw new Error(json.error || 'API 异常');
       return json.data;
+    }
+
+    let cnStockCode = '';
+
+    function initCnStockInput() {
+      const input = document.getElementById('cnStockInput');
+      if (!input) return;
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          cnStockCode = input.value.trim();
+          refreshOne('cn');
+        }
+      });
+      window.cnStockSearch = function() {
+        cnStockCode = input.value.trim();
+        refreshOne('cn');
+      };
     }
 
     async function fetchFundNav(code) {
@@ -838,7 +862,7 @@
       const badge = document.getElementById(p + 'SignalBadge');
       badge.classList.add('loading');
       try {
-        const data = await fetchSignals(market);
+        const data = await fetchSignals(market, market === 'cn' ? cnStockCode : '');
         updatePanel(market, data);
         if (data.candles && data.candles.length > 0) {
           renderChart(p + 'ChartCanvas', data.candles);
@@ -876,6 +900,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       renderFundBar('us');
       renderFundBar('cn');
+      initCnStockInput();
       refreshAll();
     });
   </script>

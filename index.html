@@ -603,7 +603,11 @@
 
     function renderChart(canvasId, candles) {
       const canvas = document.getElementById(canvasId);
+      // 如果是隐藏状态，暂时显示以获取宽度
+      const wasHidden = canvas.closest('[style*="display: none"]');
+      if (wasHidden) wasHidden.style.display = 'block';
       const rect = canvas.parentElement.getBoundingClientRect();
+      if (wasHidden) wasHidden.style.display = 'none';
       const dpr = window.devicePixelRatio || 1;
       const w = Math.max(rect.width - 24, 260);
       const h = 210;
@@ -811,7 +815,7 @@
       document.getElementById(p + 'IndGrid').innerHTML = items.map(i => '<div class="ind-item"><span class="name">' + i.name + '</span><span class="val">' + i.val + '</span></div>').join('');
 
       // ── 市场综合解读 ──
-      const summaryEl = document.getElementById(p + 'Summary');
+      const summaryEl = document.getElementById('usSummary');
       if (data.summary) {
         const sm = data.summary;
         const envBadge = sm.environment === '趋势行情' ? 'bullish' : 'neutral';
@@ -891,8 +895,8 @@
         const fundCodes = getFundList(market).join(' / ') || (market === 'us' ? '纳指100' : '沪深300');
         displayLabel = '📊 ' + (market === 'us' ? '纳指100指数' : '沪深300指数') + ' · 基金: ' + fundCodes;
       }
-      const act = document.getElementById(p + 'ActionText');
-      const note = document.getElementById(p + 'ActionNote');
+      const act = document.getElementById(market === 'cn' ? 'cnIndexActionText' : 'usActionText');
+      const note = document.getElementById(market === 'cn' ? 'cnIndexActionNote' : 'usActionNote');
       const summaryText = data.summary ? data.summary.verdict : '';
 
       if (overall === 'BUY') {
@@ -918,34 +922,261 @@
       }
     }
 
+    // ── 个股分析面板更新（A股） ──
+
+    function updateCnStockPanel(data) {
+      const p = 'cnStock';
+      const price = data.price;
+      const overall = data.overall || 'HOLD';
+      const intensity = data.intensity || '⏸️ 持有/观望';
+      const score = data.score != null ? data.score : 0;
+      const signalsData = data.signals || { buy: [], sell: [], hold: [] };
+      const ind = data.indicators || {};
+      const sma20 = ind.sma20 != null ? ind.sma20 : null;
+      const rsi = ind.rsi != null ? ind.rsi : null;
+      const drawdown = ind.drawdown != null ? ind.drawdown : null;
+      const dist20 = ind.dist20 != null ? ind.dist20 : 0;
+      const dist10 = ind.dist10 != null ? ind.dist10 : null;
+      const dist50 = ind.dist50 != null ? ind.dist50 : null;
+      const macdHistogram = ind.macdHistogram != null ? ind.macdHistogram : null;
+      const roc5 = ind.roc5 != null ? ind.roc5 : null;
+      const streak = ind.streak != null ? ind.streak : null;
+      const volRatio = ind.volRatio != null ? ind.volRatio : null;
+      const bollWidth = ind.bollWidth != null ? ind.bollWidth : null;
+      const ath = ind.ath != null ? ind.ath : null;
+      const adx = ind.adx != null ? ind.adx : null;
+      const atrPercent = ind.atrPercent != null ? ind.atrPercent : null;
+      const stddev = ind.stddev != null ? ind.stddev : null;
+      const roc10 = ind.roc10 != null ? ind.roc10 : null;
+      const roc20 = ind.roc20 != null ? ind.roc20 : null;
+
+      const aboveSMA = dist20 >= 0;
+
+      // 信号徽章
+      const badge = document.getElementById(p + 'SignalBadge');
+      const icon = document.getElementById(p + 'SignalIcon');
+      const label = document.getElementById(p + 'SignalLabel');
+      const sub = document.getElementById(p + 'SignalSub');
+      badge.classList.remove('signal-buy', 'signal-sell', 'signal-hold', 'signal-mixed', 'loading');
+      let cls, ic, lb;
+      if (overall === 'BUY') { cls = 'signal-buy'; ic = '🟢'; lb = '买入'; }
+      else if (overall === 'SELL') { cls = 'signal-sell'; ic = '🔴'; lb = '卖出'; }
+      else { cls = 'signal-hold'; ic = '🟡'; lb = '持有'; }
+      badge.classList.add(cls);
+      icon.textContent = ic; label.textContent = lb;
+      sub.textContent = intensity + ' · 均值回归';
+      const sText = score >= 0 ? '+' + score.toFixed(1) : score.toFixed(1);
+      document.getElementById(p + 'SignalScore').textContent = '综合评分：' + sText;
+
+      // 分析类型
+      const assetName = data.displayName || data.name || 'A股个股';
+      document.getElementById(p + 'AnalysisType').textContent = '📌 个股分析 · ' + assetName;
+
+      // 指标卡片
+      document.getElementById(p + 'MetricPrice').textContent = price ? fmtPrice(price) : '--';
+      document.getElementById(p + 'ScoreDisplay').textContent = '评分 ' + sText;
+      document.getElementById(p + 'MetricSMA').textContent = sma20 ? fmtPrice(sma20) : '--';
+      const smaSt = document.getElementById(p + 'MetricSMAStatus');
+      if (sma20 && price) smaSt.innerHTML = '<span class="indicator ' + (aboveSMA ? 'bearish' : 'bullish') + '">' + (aboveSMA ? '上方 +' + (dist20*100).toFixed(1) + '%' : '下方 ' + (dist20*100).toFixed(1) + '%') + '</span>';
+      else smaSt.textContent = '--';
+      document.getElementById(p + 'MetricRSI').textContent = rsi != null ? rsi.toFixed(1) : '--';
+      const rsiSt = document.getElementById(p + 'MetricRSIStatus');
+      if (rsi != null) {
+        let rc = 'neutral', rt = '中性';
+        if (rsi > 75) { rc = 'bearish'; rt = '深度超买'; }
+        else if (rsi > 70) { rc = 'bearish'; rt = '超买'; }
+        else if (rsi > 60) { rc = 'bearish'; rt = '偏高'; }
+        else if (rsi < 30) { rc = 'bullish'; rt = '深度超卖'; }
+        else if (rsi < 35) { rc = 'bullish'; rt = '超卖'; }
+        else if (rsi < 40) { rc = 'bullish'; rt = '偏低'; }
+        rsiSt.innerHTML = '<span class="indicator ' + rc + '">' + rt + '</span>';
+      }
+      document.getElementById(p + 'MetricDD').textContent = fmtPct(drawdown);
+      const ddSt = document.getElementById(p + 'MetricDDStatus');
+      if (drawdown != null) {
+        let dc = 'neutral', dt = '正常';
+        if (drawdown < -0.15) { dc = 'bullish'; dt = '深度回调'; }
+        else if (drawdown < -0.10) { dc = 'bullish'; dt = '较大回调'; }
+        else if (drawdown < -0.05) { dc = 'neutral'; dt = '小幅回调'; }
+        else { dc = 'bearish'; dt = '接近前高'; }
+        ddSt.innerHTML = '<span class="indicator ' + dc + '">' + dt + '</span>';
+      }
+
+      // 信号明细
+      const buyList = (signalsData.buy || []).map(s => typeof s === 'string' ? { text: s, weight: 0 } : s);
+      const sellList = (signalsData.sell || []).map(s => typeof s === 'string' ? { text: s, weight: 0 } : s);
+      const holdList = (signalsData.hold || []).map(s => typeof s === 'string' ? { text: s, weight: 0 } : s);
+      const groups = [
+        { title: '📈 买入信号（+' + buyList.reduce((a, s) => a + (s.weight || 0), 0).toFixed(1) + '分）', items: buyList, cls: 'buy' },
+        { title: '📉 卖出信号（-' + sellList.reduce((a, s) => a + (s.weight || 0), 0).toFixed(1) + '分）', items: sellList, cls: 'sell' },
+        { title: '➖ 中性', items: holdList, cls: 'hold' },
+      ];
+      document.getElementById(p + 'DetailsContent').innerHTML = groups.map(g => {
+        if (!g.items.length) return '';
+        const c = g.cls === 'buy' ? 'var(--green)' : g.cls === 'sell' ? 'var(--red)' : 'var(--text-muted)';
+        return '<div class="dimension-title" style="color:' + c + '">' + g.title + '</div>' +
+          '<div class="signal-grid">' +
+          g.items.map(s => {
+            const w = s.weight || 0;
+            return '<div class="signal-row"><span class="dot">' + (g.cls === 'buy' ? '🟢' : g.cls === 'sell' ? '🔴' : '⚪') + '</span>' +
+              '<span class="txt">' + s.text + '</span>' +
+              (w ? '<span class="weight ' + g.cls + '-w">' + (g.cls === 'buy' ? '+' : '-') + w.toFixed(1) + '</span>' : '') + '</div>';
+          }).join('') + '</div>';
+      }).join('');
+
+      // 参考指标
+      const items = [
+        { name: '10周均线偏离', val: dist10 != null ? fmtPct(dist10) : '--' },
+        { name: '20周均线偏离', val: dist20 != null ? fmtPct(dist20) : '--' },
+        { name: '50周均线偏离', val: dist50 != null ? fmtPct(dist50) : '--' },
+        { name: 'MACD柱线', val: macdHistogram != null ? macdHistogram.toExponential(0) : '--' },
+        { name: 'ROC 5周', val: roc5 != null ? fmtPct(roc5) : '--' },
+        { name: 'ROC 20周', val: roc20 != null ? fmtPct(roc20) : '--' },
+        { name: '连涨/跌周数', val: streak ? (streak > 0 ? '+' + streak : '' + streak) + '周' : '--' },
+        { name: '成交比', val: volRatio != null ? volRatio.toFixed(1) + 'x' : '--' },
+        { name: '布林带宽', val: bollWidth != null ? bollWidth.toFixed(1) + '%' : '--' },
+        { name: 'ADX', val: adx != null ? adx.toFixed(0) : '--' },
+        { name: 'ATR%', val: atrPercent != null ? atrPercent.toFixed(1) + '%' : '--' },
+        { name: '波动率σ', val: stddev != null ? stddev.toFixed(1) + '%' : '--' },
+      ];
+      document.getElementById(p + 'IndGrid').innerHTML = items.map(i => '<div class="ind-item"><span class="name">' + i.name + '</span><span class="val">' + i.val + '</span></div>').join('');
+
+      // 市场解读
+      const summaryEl = document.getElementById('cnStockSummary');
+      if (data.summary) {
+        const sm = data.summary;
+        summaryEl.innerHTML = '<div class="label">📊 个股综合解读</div>' +
+          '<div style="color:var(--text-primary);">' + sm.text + '</div>' +
+          '<div class="verdict" style="margin-top:4px;color:' + (overall === 'BUY' ? 'var(--green)' : overall === 'SELL' ? 'var(--red)' : 'var(--amber)') + ';">' + (sm.verdict || '') + '</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">' + (sm.scoreBreakdown || '') + '</div>';
+      } else summaryEl.innerHTML = '';
+
+      // 情绪、机构、康波
+      if (data.sentiment) {
+        const sm = data.sentiment;
+        document.getElementById(p + 'SentimentContent').innerHTML =
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            '<div style="flex:1;min-width:100px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:var(--text-muted);">贪婪指数</div><div style="font-size:22px;font-weight:700;">' + (sm.icon || '😐') + ' ' + (sm.greedIndex || 50) + '</div></div>' +
+            '<div style="flex:1;min-width:100px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:var(--text-muted);">市场热度</div><div style="font-size:22px;font-weight:700;">🔥 ' + (sm.heatIndex || 50) + '</div></div>' +
+          '</div>';
+      }
+      if (data.institutional) {
+        const inst = data.institutional;
+        document.getElementById(p + 'InstContent').innerHTML =
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            '<div style="flex:1;min-width:100px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:var(--text-muted);">机构资金</div><div style="font-size:16px;font-weight:600;">' + (inst.flowLabel || '中性') + '</div></div>' +
+          '</div>';
+      }
+      renderKwaveCycle('cn', price, score, 'cnStock');
+
+      // 操作建议
+      const displayLabel = '📌 ' + assetName;
+      const act = document.getElementById('cnActionText');
+      const note = document.getElementById('cnActionNote');
+      const summaryText = data.summary ? data.summary.verdict : '';
+      if (overall === 'BUY') {
+        act.textContent = '🟢 买入 · ' + displayLabel;
+        act.style.color = 'var(--green)';
+        note.textContent = '📌 ' + (summaryText || '出现买入信号，建议关注') + '。仅供参考';
+      } else if (overall === 'SELL') {
+        act.textContent = '🔴 卖出 · ' + displayLabel;
+        act.style.color = 'var(--red)';
+        note.textContent = '📌 ' + (summaryText || '出现卖出信号，注意风险') + '。仅供参考';
+      } else {
+        act.textContent = '🟡 持有/观望 · ' + displayLabel;
+        act.style.color = 'var(--amber)';
+        note.textContent = '📌 ' + (summaryText || '方向不明确，建议观望') + '。仅供参考';
+      }
+    }
+
+    // ── 康波周期定位 ──
+
+    function renderKwaveCycle(market, price, score, prefix) {
+      const p = prefix || (market === 'us' ? 'us' : 'cn');
+      const el = document.getElementById(p + 'KwaveContent');
+      if (!el) return;
+      const isCN = market === 'cn';
+      const year = new Date().getFullYear();
+      let currentPhase, nextPhase;
+      let marketAdvice = '', generationAdvice = '';
+
+      if (year >= 2015 && year < 2025) {
+        currentPhase = { name: '萧条期', emoji: '❄️', desc: '资产价格调整，通缩压力，筑底过程' };
+        nextPhase = { name: '回升期（第六次康波）', emoji: '🌱' };
+        marketAdvice = isCN ? 'A股在康波萧条期以结构性机会为主，关注高股息和防御板块' : '美股在康波萧条期波动加大，建议控制仓位、增加现金配置';
+      } else if (year >= 2025 && year < 2035) {
+        currentPhase = { name: '回升期（第六次康波）', emoji: '🌱', desc: 'AI/新能源驱动，新周期萌芽' };
+        nextPhase = { name: '繁荣期', emoji: '🌳' };
+        marketAdvice = isCN ? '康波回升期，A股AI/新能源板块可能率先受益' : '第六次康波回升期，新兴产业引领新一轮繁荣';
+        generationAdvice = '根据周金涛理论，2030年左右可能是85后最后一次重大财富机会窗口';
+      } else {
+        currentPhase = { name: '未知阶段', emoji: '⏳' };
+      }
+
+      const phaseEmoji = currentPhase?.emoji || '⏳';
+      const phaseName = currentPhase?.name || '未知';
+      const realEstatePhase = (2020 + ((year - 2020) % 20) < 2030) ? '下行期' : '上行期';
+
+      el.innerHTML =
+        '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+          '<div style="flex:1;min-width:120px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;">' +
+            '<div style="font-size:10px;color:var(--text-muted);">当前阶段</div>' +
+            '<div style="font-size:18px;font-weight:700;margin:4px 0;">' + phaseEmoji + ' ' + phaseName + '</div>' +
+            '<div style="font-size:11px;color:var(--text-secondary);">' + (currentPhase?.desc || '') + '</div>' +
+          '</div>' +
+          '<div style="flex:1;min-width:120px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;">' +
+            '<div style="font-size:10px;color:var(--text-muted);">康波定位</div>' +
+            '<div style="font-size:14px;font-weight:600;margin:4px 0;">第五次康波→第六次康波</div>' +
+            (nextPhase ? '<div style="font-size:11px;color:var(--text-secondary);">即将→ ' + nextPhase.emoji + ' ' + nextPhase.name + '</div>' : '') +
+          '</div>' +
+          '<div style="flex:1;min-width:120px;background:var(--bg-primary);border-radius:8px;padding:10px;text-align:center;">' +
+            '<div style="font-size:10px;color:var(--text-muted);">房地产周期</div>' +
+            '<div style="font-size:18px;font-weight:700;margin:4px 0;">🏠 ' + realEstatePhase + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-top:8px;padding:8px 10px;border-radius:6px;font-size:12px;line-height:1.7;background:var(--bg-primary);">' +
+          '<div style="font-weight:600;margin-bottom:4px;">📖 周期解读</div>' +
+          '<div style="color:var(--text-primary);">' + marketAdvice + '</div>' +
+          (generationAdvice ? '<div style="margin-top:4px;color:var(--text-secondary);font-size:11px;">' + generationAdvice + '</div>' : '') +
+        '</div>';
+      if (!marketAdvice) el.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:20px;text-align:center;">康波周期以宏观视角参考</div>';
+    }
+
     // ── 主流程 ──
 
     async function refreshOne(market) {
       const p = market === 'us' ? 'us' : 'cn';
-      const badge = document.getElementById(p + 'SignalBadge');
-      badge.classList.add('loading');
       try {
         const data = await fetchSignals(market, market === 'cn' ? cnStockCode : '');
-        // 个股模式：隐藏占位，显示结果
-        if (market === 'cn' && data.isStock) {
-          document.getElementById('cnPlaceholder').style.display = 'none';
-          document.getElementById('cnResults').style.display = 'block';
+        if (market === 'cn') {
+          if (data.isStock) {
+            // 个股模式：隐藏沪深300默认面板，显示个股结果
+            document.getElementById('cnDefault').style.display = 'none';
+            document.getElementById('cnStockResults').style.display = 'block';
+            updateCnStockPanel(data);
+            if (data.candles && data.candles.length > 0) {
+              renderChart('cnStockChartCanvas', data.candles);
+            }
+          } else {
+            // 默认沪深300
+            document.getElementById('cnDefault').style.display = 'block';
+            document.getElementById('cnStockResults').style.display = 'none';
+            updatePanel(market, data);
+            if (data.candles && data.candles.length > 0) {
+              renderChart(p + 'ChartCanvas', data.candles);
+            }
+          }
+        } else {
+          updatePanel(market, data);
+          if (data.candles && data.candles.length > 0) {
+            renderChart(p + 'ChartCanvas', data.candles);
+          }
         }
-        updatePanel(market, data);
-        if (data.candles && data.candles.length > 0) {
-          renderChart(p + 'ChartCanvas', data.candles);
-        }
-        // 同时刷新基金净值
         refreshFundNavs(market);
       } catch (err) {
         console.error(market, err);
-        const icon = document.getElementById(p + 'SignalIcon');
-        const label = document.getElementById(p + 'SignalLabel');
-        const sub = document.getElementById(p + 'SignalSub');
-        icon.textContent = '⚠️'; label.textContent = '失败'; sub.textContent = err.message;
-        document.getElementById('errorMsg').textContent = '⚠️ ' + data?.name + ' 获取失败';
+        document.getElementById('errorMsg').textContent = '⚠️ 获取失败: ' + (err.message || '');
       }
-      badge.classList.remove('loading');
     }
 
     let loading = false;
